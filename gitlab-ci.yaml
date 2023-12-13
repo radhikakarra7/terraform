@@ -1,0 +1,31 @@
+image: bentolor/docker-dind-awscli
+services:
+  - name: docker:dind 
+
+.versions_matrix: &versions_matrix
+ matrix:
+   - TERRAFORM_VERSION: ["0.15.5"]
+
+stages:
+  -  build
+variables:
+  IMAGE_NAME: terraform
+  IMAGE_TAG: ${TERRAFORM_VERSION}
+  BUILD_PATH: docker/${TERRAFORM_VERSION}
+  ECR_REGISTRY: <name.ecr.us-east-1.amazonaws.com/docker>
+
+build_image:
+  stage: build
+  tags:
+    - awspilot
+  script:
+    - export BUILD_IMAGE="${ECR_REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}"
+    # - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <name.ecr.us-east-1.amazonaws.com>
+    - docker build -t $BUILD_IMAGE ${BUILD_PATH}
+    - docker push $BUILD_IMAGE
+  parallel:
+    <<: *versions_matrix
+  only:
+    changes:
+      - "docker/**/*"
